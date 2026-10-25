@@ -1,4 +1,22 @@
-# Instalación en Linux
+# Visualizador de grafos: Dijkstra y Bellman-Ford
+
+Aplicación de escritorio para construir grafos y explorar sus caminos. En un grafo con pesos, haz clic en **dos nodos** para elegir origen y destino: el programa calcula la **ruta más corta**, la resalta sobre el grafo y muestra su costo y los pasos del algoritmo. Puedes usar Dijkstra o Bellman-Ford.
+
+## Demostración de la ruta más corta
+
+[![Demostración: selección de A y F y visualización de la ruta más corta](assets/demo-ruta-mas-corta.gif)](assets/demo-ruta-mas-corta.mp4)
+
+[Ver el video en MP4 (6 segundos)](assets/demo-ruta-mas-corta.mp4). En el ejemplo, la ruta de **A** a **F** es **A → C → D → E → F**, con costo total **8**.
+
+## Cómo usarlo
+
+1. Elige la cantidad de nodos y selecciona **Con pesos**. Construye el grafo manualmente o genéralo aleatoriamente.
+2. Si lo construyes manualmente, escribe los pesos de las aristas en la matriz de adyacencia; deja vacías las celdas sin arista. Pulsa **Graficar**.
+3. En la vista del grafo, haz clic primero en el **origen** y después en el **destino**. Selecciona **Dijkstra** o **Bellman-Ford** para ver la ruta resaltada, el costo total y la tabla de pasos.
+
+También puedes crear grafos sin pesos, dirigidos o no dirigidos, y buscar ciclos. Dijkstra requiere pesos no negativos; si hay pesos negativos, usa Bellman-Ford.
+
+## Instalación en Linux
 
 El proyecto usa tres dependencias externas: **PySide6**, **graph-tool** y **Pycairo**. PySide6 se instala con `pip`; graph-tool y Pycairo deben instalarse mediante el gestor de paquetes de la distribución para que queden vinculados a las bibliotecas nativas del sistema.
 
@@ -15,7 +33,7 @@ El proyecto usa tres dependencias externas: **PySide6**, **graph-tool** y **Pyca
 2. Entra a la carpeta del proyecto y crea el entorno virtual con acceso a los paquetes del sistema:
 
    ```bash
-   cd /ruta/a/Grafos
+   cd /ruta/a/Entregable
    python3 -m venv --system-site-packages .venv
    ```
 
@@ -30,7 +48,7 @@ El proyecto usa tres dependencias externas: **PySide6**, **graph-tool** y **Pyca
 4. Inicia el visualizador:
 
    ```bash
-   python visualizador_grafos.py
+   python visualizador_grafos_unico.py
    ```
 
 ## Ubuntu y Debian
@@ -47,7 +65,7 @@ El proyecto usa tres dependencias externas: **PySide6**, **graph-tool** y **Pyca
 2. Entra a la carpeta del proyecto y crea el entorno virtual con acceso a los paquetes del sistema:
 
    ```bash
-   cd /ruta/a/Grafos
+   cd /ruta/a/Entregable
    python3 -m venv --system-site-packages .venv
    ```
 
@@ -62,7 +80,7 @@ El proyecto usa tres dependencias externas: **PySide6**, **graph-tool** y **Pyca
 4. Inicia el visualizador:
 
    ```bash
-   python visualizador_grafos.py
+   python visualizador_grafos_unico.py
    ```
 
 ## Otras distribuciones
@@ -72,12 +90,12 @@ Instala `graph-tool` y Pycairo con el gestor de paquetes de tu distribución ant
 Después crea y activa el entorno virtual. En los comandos siguientes, sustituye `python3` por el intérprete asociado a los paquetes `graph-tool` y Pycairo que instalaste:
 
 ```bash
-cd /ruta/a/Grafos
+cd /ruta/a/Entregable
 python3 -m venv --system-site-packages .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
-python visualizador_grafos.py
+python visualizador_grafos_unico.py
 ```
 
 ## ¿Por qué `--system-site-packages`?

@@ -1,0 +1,2 @@
+# graph-tool y Pycairo se instalan con el gestor de paquetes del sistema.
+PySide6>=6.6,<7
