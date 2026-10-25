@@ -3,6 +3,7 @@ from __future__ import annotations
 import random
 import re
 import sys
+from collections import deque
 from dataclasses import dataclass
 from io import BytesIO
 from time import perf_counter
@@ -26,6 +27,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QMainWindow,
     QPushButton,
+    QScrollArea,
     QSplitter,
     QSpinBox,
     QTabWidget,
@@ -98,6 +100,53 @@ class Grafo:
 
     def adyacentes(self, nodo: Nodo) -> dict[Nodo, Peso]:
         return self._adyacencias[nodo].copy()
+
+    def encontrar_camino(self, origen: Nodo, destino: Nodo) -> list[Nodo]:
+        if origen not in self._adyacencias or destino not in self._adyacencias:
+            raise ValueError("El origen y el destino deben pertenecer al grafo.")
+        anteriores: dict[Nodo, Nodo | None] = {origen: None}
+        pendientes = deque([origen])
+        while pendientes:
+            actual = pendientes.popleft()
+            if actual == destino:
+                camino = []
+                while actual is not None:
+                    camino.append(actual)
+                    actual = anteriores[actual]
+                return list(reversed(camino))
+            for vecino in self._adyacencias[actual]:
+                if vecino not in anteriores:
+                    anteriores[vecino] = actual
+                    pendientes.append(vecino)
+        return []
+
+    def encontrar_ciclo(self) -> list[Nodo]:
+        estado: dict[Nodo, int] = {nodo: 0 for nodo in self.nodos}
+        recorrido: list[Nodo] = []
+        posiciones: dict[Nodo, int] = {}
+
+        def visitar(actual: Nodo, padre: Nodo | None) -> list[Nodo]:
+            estado[actual] = 1
+            posiciones[actual] = len(recorrido)
+            recorrido.append(actual)
+            for vecino in self._adyacencias[actual]:
+                if estado[vecino] == 0:
+                    ciclo = visitar(vecino, actual)
+                    if ciclo:
+                        return ciclo
+                elif estado[vecino] == 1 and (self.dirigido or vecino != padre):
+                    return recorrido[posiciones[vecino]:] + [vecino]
+            recorrido.pop()
+            posiciones.pop(actual)
+            estado[actual] = 2
+            return []
+
+        for nodo in self.nodos:
+            if estado[nodo] == 0:
+                ciclo = visitar(nodo, None)
+                if ciclo:
+                    return ciclo
+        return []
 
     def aristas(self) -> Iterator[tuple[Nodo, Nodo, Peso]]:
         indices = {nodo: i for i, nodo in enumerate(self.nodos)}
@@ -389,7 +438,7 @@ class VisualizadorGrafo(QGraphicsView):
         self._pesos = pesos
         self._identificadores = [str(nodo) for nodo in grafo.nodos]
         self._dirigido = grafo.dirigido
-        self._seleccion_habilitada = grafo.ponderado
+        self._seleccion_habilitada = True
         self._nodos_ruta.clear()
         self._aristas_ruta.clear()
         self._mapa_pesos = None
@@ -762,11 +811,24 @@ class VentanaPrincipal(QMainWindow):
         pagina.addLayout(encabezado)
         self.alerta_ruta = etiqueta("", "error")
         pagina.addWidget(self.alerta_ruta)
+        fila_conceptos = QHBoxLayout()
+        fila_conceptos.addWidget(etiqueta("Caminos y ciclos", "seccion"))
+        fila_conceptos.addStretch()
+        buscar_ciclo_btn = QPushButton("Mostrar ciclo")
+        buscar_ciclo_btn.clicked.connect(self._mostrar_ciclo)
+        fila_conceptos.addWidget(buscar_ciclo_btn)
+        pagina.addLayout(fila_conceptos)
+        self.salida_concepto = etiqueta(
+            "Selecciona origen y destino haciendo clic en los nodos, o muestra un ciclo.",
+            "resumen",
+        )
+        pagina.addWidget(self.salida_concepto)
 
         division = QSplitter(Qt.Orientation.Vertical)
         pagina.addWidget(division, 1)
         contenedor, layout = tarjeta()
         layout.setContentsMargins(8, 8, 8, 8)
+        contenedor.setMinimumHeight(220)
         division.addWidget(contenedor)
         self.visualizador = VisualizadorGrafo()
         self.visualizador.nodo_pulsado.connect(self._pulsar_nodo)
@@ -776,7 +838,11 @@ class VentanaPrincipal(QMainWindow):
         resultados, layout_resultados = tarjeta()
         layout_resultados.setContentsMargins(16, 12, 16, 12)
         layout_resultados.setSpacing(6)
-        division.addWidget(resultados)
+        desplazamiento_resultados = QScrollArea()
+        desplazamiento_resultados.setFrameShape(QScrollArea.Shape.NoFrame)
+        desplazamiento_resultados.setWidgetResizable(True)
+        desplazamiento_resultados.setWidget(resultados)
+        division.addWidget(desplazamiento_resultados)
         self.tablas: dict[str, QTableWidget] = {}
         self.resumenes: dict[str, QLabel] = {}
         for nombre in ("Dijkstra", "Bellman-Ford"):
@@ -794,10 +860,13 @@ class VentanaPrincipal(QMainWindow):
             self.resumenes[nombre] = resumen
         self.comparacion = etiqueta("", "resumen")
         layout_resultados.addWidget(self.comparacion)
+        layout_resultados.addWidget(etiqueta("Salida textual de la ruta óptima", "seccion"))
+        self.salida_ruta = etiqueta("Selecciona origen y destino.", "resumen")
+        layout_resultados.addWidget(self.salida_ruta)
         division.setChildrenCollapsible(False)
         division.setStretchFactor(0, 3)
         division.setStretchFactor(1, 2)
-        division.setSizes([420, 320])
+        division.setSizes([280, 200])
 
     def _actualizar_controles_peso(self) -> None:
         visible = self.ponderacion.currentIndex() == 1
@@ -857,14 +926,15 @@ class VentanaPrincipal(QMainWindow):
         texto = f"{len(grafo.nodos)} nodos · {cantidad_aristas} aristas · rueda para ampliar · arrastra para desplazarte"
         if grafo.ponderado and cantidad_aristas > 70:
             texto += " · pasa el cursor por una arista para ver su peso"
-        if grafo.ponderado:
-            texto += " · haz clic en origen y destino"
+        texto += " · haz clic en origen y destino"
         self.resumen_grafo.setText(texto)
         self._limpiar_resultados()
         self.algoritmo.blockSignals(True)
         self.algoritmo.setCurrentIndex(1 if grafo.tiene_pesos_negativos() else 0)
         self.algoritmo.blockSignals(False)
         self.algoritmo.setEnabled(grafo.ponderado)
+        if not grafo.ponderado:
+            self.salida_ruta.setText("Disponible para grafos ponderados.")
         self.pestanas.setTabEnabled(2, True)
         self.pestanas.setCurrentIndex(2)
         self.visualizador.mostrar(grafo)
@@ -881,20 +951,68 @@ class VentanaPrincipal(QMainWindow):
             tabla.setColumnCount(0)
             self.resumenes[nombre].setText("Elige origen y destino para ver los pasos.")
         self.comparacion.clear()
+        self.salida_ruta.setText("Selecciona origen y destino.")
         self.alerta_ruta.clear()
+        self.salida_concepto.setText(
+            "Selecciona origen y destino haciendo clic en los nodos, o muestra un ciclo."
+        )
+
+    def _mostrar_camino(self) -> None:
+        grafo = self.vista_matriz.grafo
+        if grafo is None:
+            return
+        if self._origen is None or self._destino is None:
+            self.salida_concepto.setText(
+                "Selecciona origen y destino haciendo clic en los nodos."
+            )
+            return
+        camino = grafo.encontrar_camino(self._origen, self._destino)
+        if camino:
+            secuencia = " → ".join(str(nodo) for nodo in camino)
+            self.salida_concepto.setText(
+                f"Camino sin considerar pesos: {secuencia} · "
+                f"longitud: {len(camino) - 1} aristas."
+            )
+        else:
+            self.salida_concepto.setText(
+                f"No existe un camino de {self._origen} a {self._destino}."
+            )
+        self.visualizador.resaltar_ruta(camino)
+
+    def _mostrar_ciclo(self) -> None:
+        grafo = self.vista_matriz.grafo
+        if grafo is None:
+            return
+        ciclo = grafo.encontrar_ciclo()
+        if ciclo:
+            secuencia = " → ".join(str(nodo) for nodo in ciclo)
+            self.salida_concepto.setText(
+                f"Ciclo: {secuencia} · longitud: {len(ciclo) - 1} aristas."
+            )
+        else:
+            self.salida_concepto.setText("Este grafo no contiene ciclos.")
+        self.visualizador.resaltar_ruta(ciclo)
 
     def _pulsar_nodo(self, nodo: str) -> None:
         grafo = self.vista_matriz.grafo
-        if grafo is None or not grafo.ponderado:
+        if grafo is None:
             return
         if self._origen is None or self._destino is not None:
             self._limpiar_resultados()
             self._origen = nodo
             self.visualizador.resaltar_ruta([])
             self.resumen_grafo.setText(f"Origen: {nodo} · elige el destino")
+            self.salida_concepto.setText(f"Origen: {nodo}. Selecciona el destino.")
+            if grafo.ponderado:
+                self.salida_ruta.setText(f"Origen: {nodo}. Selecciona el destino.")
+            else:
+                self.salida_ruta.setText("Disponible para grafos ponderados.")
             return
         self._destino = nodo
-        self._mostrar_algoritmo()
+        if grafo.ponderado:
+            self._mostrar_algoritmo()
+        else:
+            self._mostrar_camino()
 
     def _cambiar_algoritmo(self) -> None:
         grafo = self.vista_matriz.grafo
@@ -921,14 +1039,28 @@ class VentanaPrincipal(QMainWindow):
         if resultado.estado == "ruta":
             camino = " → ".join(str(nodo) for nodo in resultado.ruta)
             resumen = f"Ruta: {camino} · costo total: {resultado.distancia:g}"
+            salida = (f"{nombre} · Origen: {self._origen} · Destino: {self._destino} · "
+                      f"Ruta óptima: {camino} · Costo total: {resultado.distancia:g}")
+            concepto = f"Camino: {camino} · longitud: {len(resultado.ruta) - 1} aristas."
         elif resultado.estado == "sin_ruta":
             resumen = f"Sin ruta entre {self._origen} y {self._destino}"
+            salida = f"{nombre} · No existe una ruta entre {self._origen} y {self._destino}."
+            concepto = f"No existe un camino de {self._origen} a {self._destino}."
         else:
             resumen = "Un ciclo negativo impide una distancia mínima finita."
+            salida = (f"{nombre} · No existe una ruta óptima finita entre "
+                      f"{self._origen} y {self._destino} por un ciclo negativo.")
+            ejemplo = self.vista_matriz.grafo.encontrar_camino(self._origen, self._destino)
+            secuencia = " → ".join(str(nodo) for nodo in ejemplo)
+            concepto = (f"Camino sin considerar pesos: {secuencia} · "
+                        f"longitud: {len(ejemplo) - 1} aristas.")
         if resultado.ciclo_negativo and resultado.estado != "ciclo_negativo":
             resumen += " · Hay un ciclo negativo alcanzable desde el origen."
+            salida += " Hay un ciclo negativo alcanzable desde el origen."
         self.resumenes[nombre].setText(resumen)
         self.resumen_grafo.setText(resumen)
+        self.salida_ruta.setText(salida)
+        self.salida_concepto.setText(concepto)
         self.visualizador.resaltar_ruta(resultado.ruta)
         otro = "Bellman-Ford" if nombre == "Dijkstra" else "Dijkstra"
         comparado = self._resultados.get(otro)
