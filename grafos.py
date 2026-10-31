@@ -725,7 +725,7 @@ class VentanaPrincipal(QMainWindow):
         formulario.setSpacing(15)
         formulario.setLabelAlignment(formulario.labelAlignment())
         self.cantidad_nodos = QSpinBox()
-        self.cantidad_nodos.setRange(1, 50)
+        self.cantidad_nodos.setRange(1, 2_147_483_647)
         self.cantidad_nodos.setValue(6)
         self.tipo_identificacion = QComboBox()
         self.tipo_identificacion.addItems(["Números", "Letras"])
@@ -755,10 +755,10 @@ class VentanaPrincipal(QMainWindow):
         self.porcentaje.setValue(35)
         self.porcentaje.setSuffix(" %")
         self.peso_minimo = QSpinBox()
-        self.peso_minimo.setRange(1, 1_000_000)
+        self.peso_minimo.setRange(-2_147_483_648, 1_000_000)
         self.peso_minimo.setValue(1)
         self.peso_maximo = QSpinBox()
-        self.peso_maximo.setRange(1, 1_000_000)
+        self.peso_maximo.setRange(-2_147_483_648, 1_000_000)
         self.peso_maximo.setValue(10)
         formulario_aleatorio.addRow("Conexión", self.porcentaje)
         formulario_aleatorio.addRow("Peso mínimo", self.peso_minimo)
@@ -904,6 +904,9 @@ class VentanaPrincipal(QMainWindow):
         if ponderado and minimo > maximo:
             self.mensaje_configuracion.setText("El peso mínimo debe ser menor o igual al máximo.")
             return
+        if ponderado and minimo == maximo == 0:
+            self.mensaje_configuracion.setText("El peso debe ser distinto de cero.")
+            return
         nodos = identificadores(self.cantidad_nodos.value(), self.tipo_identificacion.currentText())
         grafo = Grafo(nodos, self.tipo_grafo.currentIndex() == 1, ponderado)
         if grafo.dirigido:
@@ -913,7 +916,9 @@ class VentanaPrincipal(QMainWindow):
                         for j in range(i + 1, len(nodos)))
         for origen, destino in posibles:
             if random.random() * 100 < self.porcentaje.value():
-                peso = random.randint(minimo, maximo) if ponderado else None
+                peso = random.randint(minimo, maximo - (minimo <= 0 <= maximo)) if ponderado else None
+                if peso is not None and minimo <= 0 <= maximo and peso >= 0:
+                    peso += 1
                 grafo.agregar_arista(origen, destino, peso)
         self._nuevo_grafo(grafo, editable=False)
 

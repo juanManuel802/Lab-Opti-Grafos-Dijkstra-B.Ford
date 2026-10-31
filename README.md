@@ -48,7 +48,7 @@ El proyecto usa tres dependencias externas: **PySide6**, **graph-tool** y **Pyca
 4. Inicia el visualizador:
 
    ```bash
-   python visualizador_grafos_unico.py
+   python grafos.py
    ```
 
 ## Ubuntu y Debian
@@ -80,7 +80,7 @@ El proyecto usa tres dependencias externas: **PySide6**, **graph-tool** y **Pyca
 4. Inicia el visualizador:
 
    ```bash
-   python visualizador_grafos_unico.py
+   python grafos.py
    ```
 
 ## Otras distribuciones
@@ -95,7 +95,7 @@ python3 -m venv --system-site-packages .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
-python visualizador_grafos_unico.py
+python grafos.py
 ```
 
 ## ¿Por qué `--system-site-packages`?
